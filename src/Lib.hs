@@ -1,4 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Lib where
 
@@ -8,9 +12,10 @@ import           Data.Map.Strict  (Map)
 import qualified Data.Map.Strict as M
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as N
-import           Data.Serialize ()
+import           Data.Serialize 
 import           GHC.Generics
 import           Text.ParserCombinators.ReadP
+import           Text.Printf
 
 type Name = String
 
@@ -22,9 +27,21 @@ data Event = Event
   , amount       :: Rational
   } deriving (Show, Eq, Generic)
 
+deriving instance Generic Day
+instance Serialize Day
+instance Serialize (NonEmpty Name)
+instance Serialize Event
+
 type Sheet = [Event]
 
 type Entry = Map String Rational
+
+displayEntry :: Entry -> String
+displayEntry = M.foldlWithKey'
+  (\b k v -> b ++ k ++ ": " ++ (printf "% 10.2f\n" . dbl) v) ""
+  where
+    dbl :: Rational -> Double
+    dbl = fromRational
 
 mkLineItem :: Event -> Entry
 mkLineItem e = M.unionWith (+) paid owesMap
