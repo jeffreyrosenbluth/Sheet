@@ -53,12 +53,13 @@ parseDate :: ReadP Day
 parseDate = do
   month <- posInt <* slash
   day   <- posInt <* slash
-  year  <- posInteger
+  year  <- parseYear
   return $ fromGregorian year month day
 
 parseAmount :: ReadP Rational
-parseAmount = notComma
-  >>= (\s -> return $ (toRational (100 * read s :: Double)) / 100)
+parseAmount = do
+  s <- notComma
+  return $ (toRational (100 * read s :: Double)) / 100
 
 parseParticipants :: ReadP (NonEmpty Name)
 parseParticipants = do
@@ -85,8 +86,8 @@ posInt = readS_to_P f
       | otherwise = [(read ns, rest)]
       where (ns, rest) = span isDigit xs
 
-posInteger :: ReadP Integer
-posInteger = readS_to_P f
+parseYear :: ReadP Integer
+parseYear = readS_to_P f
   where
     f xs
       | null ns   = []
