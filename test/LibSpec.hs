@@ -5,7 +5,11 @@ import           Test.Hspec
 import           Data.Time.Calendar
 import qualified Data.Map.Strict as M
 import qualified Data.List.NonEmpty as N
+import           Data.Serialize
+import           Text.ParserCombinators.ReadP
 
+eventString1 = "2/27/17, Bowling, JR, 100.10, JR VH AK SZ SO"
+ 
 event1 :: Event
 event1 = Event "Bowling"
                (fromGregorian 2017 2 27)
@@ -57,3 +61,9 @@ spec = do
   describe "total" $ do
     it "Totals a list of events" $
       total [event1, event2] `shouldBe` dict12
+  describe "serialize" $ do
+    it "Checks that (decode . encodei) == id" $
+      (decode . encode $ [dict1, dict2]) `shouldBe` Right [dict1, dict2]
+  describe "parseEvent" $ do
+    it "Parsers a string to an event" $
+      readP_to_S parseEvent eventString1 `shouldBe` [(event1, "")]
