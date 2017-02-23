@@ -44,7 +44,7 @@ repl = do
     Just "quit" -> outputStrLn "Goodbye"
     Just "show" -> do
       m <- lift get
-      outputStrLn . show . sheet $ m
+      outputStrLn . displaySheet . sheet $ m
       repl
     Just "total" -> do
       m <- lift get

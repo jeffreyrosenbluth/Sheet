@@ -8,6 +8,7 @@ module Lib where
 
 import           Data.Char
 import           Data.Time.Calendar
+import           Data.Time.Format
 import           Data.Map.Strict  (Map)
 import qualified Data.Map.Strict as M
 import           Data.List.NonEmpty (NonEmpty)
@@ -42,6 +43,17 @@ displayEntry = M.foldlWithKey'
   where
     dbl :: Rational -> Double
     dbl = fromRational
+
+displayEvent :: Event -> String
+displayEvent e
+  =  formatTime defaultTimeLocale "%D " (date e)
+  ++ printf "%-31.30s" (description e)
+  ++ printf "%-5.4s" (payer e)
+  ++ printf "% 10.2f " (fromRational (amount e) :: Double)
+  ++ unwords (N.toList $ participants e) ++ "\n"
+
+displaySheet :: Sheet -> String
+displaySheet = concatMap displayEvent
 
 mkLineItem :: Event -> Entry
 mkLineItem e = M.unionWith (+) paid owesMap
