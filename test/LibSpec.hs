@@ -33,6 +33,15 @@ dict1 =
              , ("SO", -20.02)
              ]
 
+dict1' :: Entry
+dict1' =
+  M.fromList [ ("JR", -80.08)
+             , ("VH", 20.02)
+             , ("AK", 20.02)
+             , ("SZ", 20.02)
+             , ("SO", 20.02)
+             ]
+
 dict2 :: Entry
 dict2 =
   M.fromList [ ("JR", 100.10)
@@ -67,3 +76,8 @@ spec = do
   describe "parseEvent" $ do
     it "Parsers a string to an event" $
       readP_to_S parseEvent eventString1 `shouldBe` [(event1, "")]
+  describe "pariOff" $ do
+    it "Pairs off the biggest debtor with the biggest lender" $
+      print $ pairOff dict1
+    it "Pairs off the biggest debtor with the biggest lender" $
+      print $ pairOff dict1'

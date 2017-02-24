@@ -7,9 +7,10 @@
 module Lib where
 
 import           Data.Char
+import           Data.List (sortOn)
 import           Data.Time.Calendar
 import           Data.Time.Format
-import           Data.Map.Strict  (Map)
+import           Data.Map.Strict  (Map, (!))
 import qualified Data.Map.Strict as M
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as N
@@ -37,6 +38,12 @@ type Sheet = [Event]
 
 type Entry = Map String Rational
 
+data Payment = Payment
+  { from :: Name
+  , to   :: Name
+  , pmt  :: Rational
+  } deriving (Show)
+
 displayEntry :: Entry -> String
 displayEntry = M.foldlWithKey'
   (\b k v -> b ++ k ++ ": " ++ (printf "% 10.2f\n" . dbl) v) ""
@@ -53,7 +60,7 @@ displayEvent e
   ++ unwords (N.toList $ participants e) ++ "\n"
 
 displaySheet :: Sheet -> String
-displaySheet = concatMap displayEvent
+displaySheet = concatMap displayEvent . sortOn date
 
 mkLineItem :: Event -> Entry
 mkLineItem e = M.unionWith (+) paid owesMap
@@ -66,6 +73,33 @@ mkLineItem e = M.unionWith (+) paid owesMap
 
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
+
+-- foldrWithKey' :: (k -> v -> b -> b) -> b -> Map k v -> b
+  
+minValue :: (Ord v, Ord k) => Map k v -> (k, v)
+minValue m = M.foldrWithKey' f (k1, v1) m
+  where
+    f k v (k0, v0) = if v < v0  then (k, v) else (k0, v0)
+    (k1:_) = M.keys m
+    v1 = m ! k1
+
+maxValue :: (Ord v, Ord k) => Map k v -> (k, v)
+maxValue m = M.foldrWithKey' f (k1, v1) m
+  where
+    f k v (k0, v0) = if v > v0  then (k, v) else (k0, v0)
+    (k1:_) = M.keys m
+    v1 = m ! k1
+
+pairOff :: Entry -> (Payment, Entry)
+pairOff e
+  | dir = (p, M.adjust (const 0) t  . M.adjust (+ b) f $ e)
+  | otherwise = (q, M.adjust (+ a) t . M.adjust (const 0) f $ e)
+  where
+    dir = a >= abs b
+    (f, a) = maxValue e
+    (t, b) = minValue e
+    p = Payment t f (negate b)
+    q = Payment t f a
 
 -- Parser ----------------------------------------------------------------------
 

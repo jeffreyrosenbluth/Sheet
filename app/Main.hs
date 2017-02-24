@@ -36,6 +36,7 @@ repl = do
       lift $ modify (\m -> m {file = fname})
       repl
     Just (words -> "open":fname:[]) -> do
+      -- XXX handle case of non existant file.
       eFile <- liftIO $ BS.readFile fname
       case decode eFile of
         Left err -> outputStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
