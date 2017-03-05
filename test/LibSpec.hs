@@ -12,14 +12,16 @@ import           Text.ParserCombinators.ReadP
 eventString1 = "2/27/17, Bowling, JR, 100.10, JR VH AK SZ SO"
  
 event1 :: Event
-event1 = Event "Bowling"
+event1 = Event 0
+               "Bowling"
                (fromGregorian 2017 2 27)
                "JR"
                (N.fromList ["JR", "VH", "AK", "SZ", "SO"])
                100.10
 
 event2 :: Event
-event2 = Event "Bowling"
+event2 = Event 1
+               "Bowling"
                (fromGregorian 2017 2 27)
                "JR"
                (N.fromList ["VH", "AK", "SZ", "SO"])

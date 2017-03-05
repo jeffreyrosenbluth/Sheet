@@ -41,12 +41,13 @@ repl = do
       case decode eFile of
         Left err -> outputStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
         Right events ->
-          lift $ modify (\m ->
-                           m { nextId = (length events)
-                             , sheet = events
-                             , file = fname
-                             }
-                         )
+          lift $ modify
+            (\m ->
+               m { nextId = (length events)
+                 , sheet = events
+                 , file = fname
+                 }
+            )
       repl
     Just "quit" -> outputStrLn "Goodbye"
     Just "show" -> do

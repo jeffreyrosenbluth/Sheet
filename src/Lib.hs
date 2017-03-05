@@ -14,7 +14,7 @@ import           Data.Map.Strict  (Map, (!))
 import qualified Data.Map.Strict as M
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as N
-import           Data.Serialize 
+import           Data.Serialize
 import           GHC.Generics
 import           Text.ParserCombinators.ReadP
 import           Text.Printf
@@ -85,45 +85,41 @@ mkLineItem e = M.unionWith (+) paid owesMap
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
 
-minValue :: (Ord v, Ord k) => Map k v -> (k, v)
-minValue m = M.foldrWithKey' f (k1, v1) m
+minValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
+minValue m
+  | null m    = Nothing
+  | otherwise = Just $ M.foldrWithKey' f (k1, v1) m
   where
     f k v (k0, v0) = if v < v0  then (k, v) else (k0, v0)
-    (k1:_) = M.keys m
-    v1 = m ! k1
+    (k1, v1) = M.elemAt 0 m
 
-maxValue :: (Ord v, Ord k) => Map k v -> (k, v)
-maxValue m = M.foldrWithKey' f (k1, v1) m
+maxValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
+maxValue m
+  | null m    = Nothing
+  | otherwise = Just $ M.foldrWithKey' f (k1, v1) m
   where
     f k v (k0, v0) = if v > v0  then (k, v) else (k0, v0)
-    (k1:_) = M.keys m
-    v1 = m ! k1
+    (k1, v1) = M.elemAt 0 m
 
-pairOff :: Entry -> (Payment, Entry)
-pairOff e
-  | dir = (p, M.adjust (const 0) t  . M.adjust (+ b) f $ e)
-  | otherwise = (q, M.adjust (+ a) t . M.adjust (const 0) f $ e)
-  where
-    dir = a >= abs b
-    (f, a) = maxValue e
-    (t, b) = minValue e
-    p = Payment t f (negate b)
-    q = Payment t f a
-
-done :: Entry -> Bool
-done e = all (== 0) (M.elems e)
+pairOff :: Entry -> Maybe (Payment, Entry)
+pairOff e = do
+  (f, a) <- maxValue e
+  (t, b) <- minValue e
+  return $
+    if a >= abs b
+      then (Payment t f (negate b), M.delete t  . M.adjust (+ b) f $ e)
+      else (Payment t f a, M.adjust (+ a) t . M.delete f $ e)
 
 reconcile :: Entry -> [Payment]
-reconcile = go [] 
-  where
-    go ps e
-      | done e = ps
-      | otherwise =
-          let (p, e') = pairOff e
-          in go (p:ps) e'
+reconcile e = if M.size e >= 2
+  then
+    case pairOff e of
+      Nothing -> error "tHE SKY IS FALLING, TRIED TO PAIR OFF AN EMPTY MAP."
+      Just (p, e') -> p : reconcile e'
+  else []
 
 deleteEntry :: Sheet -> Int -> Sheet
-deleteEntry s n = filter (\e -> ident e /= n) s
+deleteEntry s n = filter ((/= n) . ident) s
 
 -- Parser ----------------------------------------------------------------------
 
