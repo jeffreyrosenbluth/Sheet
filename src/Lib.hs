@@ -25,7 +25,7 @@ data Event = Event
   { description  :: String
   , date         :: Day
   , payer        :: Name
-  , participants :: NonEmpty Name 
+  , participants :: NonEmpty Name
   , amount       :: Rational
   } deriving (Show, Eq, Generic)
 
@@ -42,11 +42,20 @@ data Payment = Payment
   { from :: Name
   , to   :: Name
   , pmt  :: Rational
-  } deriving (Show)
+  } deriving (Show, Eq)
+
+printRational :: Rational -> String
+printRational = printf "% 10.2f" . dbl
+  where
+    dbl :: Rational -> Double
+    dbl = fromRational
+    
+displayPayment :: Payment -> String
+displayPayment (Payment f t p) = printRational p ++ ": " ++ f ++ " -> " ++ t ++ "\n"
 
 displayEntry :: Entry -> String
 displayEntry = M.foldlWithKey'
-  (\b k v -> b ++ k ++ ": " ++ (printf "% 10.2f\n" . dbl) v) ""
+  (\b k v -> b ++ k ++ ": " ++ printRational v ++ "\n") ""
   where
     dbl :: Rational -> Double
     dbl = fromRational
@@ -74,8 +83,6 @@ mkLineItem e = M.unionWith (+) paid owesMap
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
 
--- foldrWithKey' :: (k -> v -> b -> b) -> b -> Map k v -> b
-  
 minValue :: (Ord v, Ord k) => Map k v -> (k, v)
 minValue m = M.foldrWithKey' f (k1, v1) m
   where
@@ -100,6 +107,22 @@ pairOff e
     (t, b) = minValue e
     p = Payment t f (negate b)
     q = Payment t f a
+
+done :: Entry -> Bool
+done e = all (== 0) (M.elems e)
+
+reconcile :: Entry -> [Payment]
+reconcile = go [] 
+  where
+    go ps e
+      | done e = ps
+      | otherwise =
+          let (p, e') = pairOff e
+          in go (p:ps) e'
+
+deleteEntry :: Sheet -> Int -> Sheet
+deleteEntry s n = take (n - 1) s ++ drop n s
+
 
 -- Parser ----------------------------------------------------------------------
 

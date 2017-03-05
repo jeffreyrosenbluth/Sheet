@@ -9,6 +9,7 @@ import qualified Data.ByteString as BS
 import           Data.Serialize (encode, decode)
 import           System.Console.Haskeline
 import           Text.ParserCombinators.ReadP (readP_to_S)
+import           Text.Read (readMaybe)
 
 data Model = Model
   { nextId :: Int
@@ -51,7 +52,7 @@ repl = do
       m <- lift get
       outputStrLn $ (displayEntry . total) (sheet m)
       repl
-    Just ('+':' ':eventString) -> do
+    Just ('+':' ':eventString) ->
       case readP_to_S parseEvent eventString of
         [] -> do
           outputStrLn "*** INVALID EVENT ***"
@@ -60,6 +61,16 @@ repl = do
           lift $ modify
             (\m -> m { sheet = e:sheet m , nextId = nextId m + 1})
           m' <-  lift get
+          liftIO $ save m'
+          repl
+    Just (words -> "delete":n:[]) ->
+      case readMaybe n of
+        Nothing -> do
+          outputStrLn $ "*** EVENT " ++ n ++ " does not exist ***"
+          repl
+        Just n' -> do
+          m' <- lift get
+          lift $ modify (\m -> m {sheet = deleteEntry (sheet m') n'})
           liftIO $ save m'
           repl
     Just input -> do
