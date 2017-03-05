@@ -22,11 +22,10 @@ emptyModel = Model 0 [] ""
 
 type Repl a = InputT (StateT Model IO) a
 
-save :: Model -> IO ()
-save model = BS.writeFile fname bs
-  where
-    fname = file model
-    bs = encode $ sheet model
+save :: Repl ()
+save =  do
+  m <- lift get
+  liftIO $ BS.writeFile (file m) (encode $ sheet m)
 
 repl :: Repl ()
 repl = do
@@ -41,7 +40,13 @@ repl = do
       eFile <- liftIO $ BS.readFile fname
       case decode eFile of
         Left err -> outputStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
-        Right events -> lift $ modify (\m -> m { sheet = events, file = fname})
+        Right events ->
+          lift $ modify (\m ->
+                           m { nextId = (length events)
+                             , sheet = events
+                             , file = fname
+                             }
+                         )
       repl
     Just "quit" -> outputStrLn "Goodbye"
     Just "show" -> do
@@ -59,9 +64,12 @@ repl = do
           repl
         ((e, _):_) -> do
           lift $ modify
-            (\m -> m { sheet = e:sheet m , nextId = nextId m + 1})
-          m' <-  lift get
-          liftIO $ save m'
+            (\m ->
+               m { sheet = (e {ident = nextId m + 1}):sheet m
+                 , nextId = nextId m + 1
+                 }
+            )
+          save
           repl
     Just (words -> "delete":n:[]) ->
       case readMaybe n of
@@ -69,10 +77,13 @@ repl = do
           outputStrLn $ "*** EVENT " ++ n ++ " does not exist ***"
           repl
         Just n' -> do
-          m' <- lift get
-          lift $ modify (\m -> m {sheet = deleteEntry (sheet m') n'})
-          liftIO $ save m'
+          lift $ modify (\m -> m {sheet = deleteEntry (sheet m) n'})
+          save
           repl
+    Just "reconcile" -> do
+      m <- lift get
+      outputStrLn $ concatMap displayPayment (reconcile . total $ sheet m)
+      repl
     Just input -> do
       outputStrLn $ "*** " ++ input ++ " IS NOT A VALID COMMAND ***"
       repl

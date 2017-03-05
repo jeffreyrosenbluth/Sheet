@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -22,7 +22,8 @@ import           Text.Printf
 type Name = String
 
 data Event = Event
-  { description  :: String
+  { ident        :: Int
+  , description  :: String
   , date         :: Day
   , payer        :: Name
   , participants :: NonEmpty Name
@@ -49,7 +50,7 @@ printRational = printf "% 10.2f" . dbl
   where
     dbl :: Rational -> Double
     dbl = fromRational
-    
+ 
 displayPayment :: Payment -> String
 displayPayment (Payment f t p) = printRational p ++ ": " ++ f ++ " -> " ++ t ++ "\n"
 
@@ -62,7 +63,8 @@ displayEntry = M.foldlWithKey'
 
 displayEvent :: Event -> String
 displayEvent e
-  =  formatTime defaultTimeLocale "%D " (date e)
+  =  printf "% 3d " (ident e)
+  ++ formatTime defaultTimeLocale "%D " (date e)
   ++ printf "%-31.30s" (description e)
   ++ printf "%-5.4s" (payer e)
   ++ printf "% 10.2f " (fromRational (amount e) :: Double)
@@ -121,8 +123,7 @@ reconcile = go []
           in go (p:ps) e'
 
 deleteEntry :: Sheet -> Int -> Sheet
-deleteEntry s n = take (n - 1) s ++ drop n s
-
+deleteEntry s n = filter (\e -> ident e /= n) s
 
 -- Parser ----------------------------------------------------------------------
 
@@ -133,7 +134,7 @@ parseEvent = do
   pyr  <- notComma <* sep
   amt  <- parseAmount <* sep
   ps   <- parseParticipants
-  return $ Event desc dt pyr ps amt
+  return $ Event 0 desc dt pyr ps amt
 
 parseDate :: ReadP Day
 parseDate = do
