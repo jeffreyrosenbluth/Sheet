@@ -4,6 +4,16 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
+-------------------------------------------------------------------------------
+-- |
+-- Module      :  Main
+-- Copyright   :  (c) 2017 Jeffrey Rosenbluth
+-- License     :  BSD-style (see LICENSE)
+-- Maintainer  :  jeffrey.rosenbluth@gmail.com
+--
+-- Command Line interface for storing and settling shared payments.
+-------------------------------------------------------------------------------
+
 module Main where
 
 import           Sheet
@@ -16,8 +26,7 @@ import           System.Directory (doesFileExist)
 import           Text.ParserCombinators.ReadP (readP_to_S)
 import           Text.Read (readMaybe)
 
-main :: IO ((), Model)
-main = runStateT (runInputT defaultSettings repl) emptyModel
+-- Types -----------------------------------------------------------------------
 
 data Model = Model
   { nextId :: Int
@@ -28,12 +37,17 @@ data Model = Model
 data Command
   = New String
   | Open String
-  | Show 
+  | Show
   | Total
   | Add String
   | Delete String
   | Reconcile
   | Err String
+
+--------------------------------------------------------------------------------
+
+main :: IO ((), Model)
+main = runStateT (runInputT defaultSettings repl) (Model 0 [] "")
 
 parseCommand :: String -> Command
 parseCommand s = case words s of
@@ -46,9 +60,6 @@ parseCommand s = case words s of
   ["reconcile"]   -> Reconcile
   err             -> Err $ unwords err
 
-emptyModel :: Model
-emptyModel = Model 0 [] ""
-
 setModel :: [Event] -> String -> Model
 setModel events = Model (maximum $ map ident events) events
 
@@ -58,8 +69,8 @@ addEvent e m = m {sheet = (e {ident = n}) : sheet m, nextId = n}
     n = nextId m + 1
 
 instance MonadState s m => MonadState s (InputT m) where
-  get = lift get
-  put = lift . put
+  get   = lift get
+  put   = lift . put
   state = lift . state
 
 type Repl a = InputT (StateT Model IO) a
@@ -98,6 +109,6 @@ process (Add eventString) =
       []         -> outputStrLn "*** INVALID EVENT ***"
 process (Delete n) =
     case readMaybe n of
-      Nothing -> outputStrLn $ "*** EVENT " ++ n ++ " DOES NOT EXIST ***"
+      Nothing -> outputStrLn $ "*** PARSE ERROR " ++ n ++ " IS NOT AN INTEGER ***"
       Just n' -> modify (\m -> m {sheet = deleteEntry (sheet m) n'}) >> save
 process (Err err) = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"

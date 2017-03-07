@@ -84,7 +84,7 @@ displayEvent e
   ++ printf "%-31.30s" (description e)
   ++ printf "%-5.4s" (payer e)
   ++ printf "% 10.2f " (fromRational (amount e) :: Double)
-  ++ unwords (N.toList $ participants e) ++ "\n"
+  ++ unwords (N.toList . N.sort $ participants e) ++ "\n"
 
 -- | 'Sheet' to String, sorted by date.
 displaySheet :: Sheet -> String
