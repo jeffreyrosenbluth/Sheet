@@ -47,7 +47,11 @@ data Command
 --------------------------------------------------------------------------------
 
 main :: IO ((), Model)
-main = runStateT (runInputT defaultSettings repl) (Model 0 [] "")
+main = do
+  putStrLn logo
+  putStrLn "Copyright 2017, Jeffrey Rosenbluth"
+  putStrLn "Version 0.1"
+  runStateT (runInputT defaultSettings repl) (Model 0 [] "")
 
 parseCommand :: String -> Command
 parseCommand s = case words s of
@@ -112,3 +116,13 @@ process (Delete n) =
       Nothing -> outputStrLn $ "*** PARSE ERROR " ++ n ++ " IS NOT AN INTEGER ***"
       Just n' -> modify (\m -> m {sheet = deleteEntry (sheet m) n'}) >> save
 process (Err err) = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"
+
+-- Logo ------------------------------------------------------------------------
+
+logo :: String
+logo =  "  _____ _               _     _ _   \n"
+     ++ " / ____| |             | |   (_) |  \n"
+     ++ "| (___ | |__   ___  ___| |_   _| |_ \n"
+     ++ " \\___ \\| '_ \\ / _ \\/ _ \\ __| | | __|\n"
+     ++ " ____) | | | |  __/  __/ |_  | | |_ \n"
+     ++ "|_____/|_| |_|\\___|\\___|\\__| |_|\\__|\n"
