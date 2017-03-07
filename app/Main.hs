@@ -25,6 +25,27 @@ data Model = Model
   , file   :: String
   }
 
+data Command
+  = New String
+  | Open String
+  | Show 
+  | Total
+  | Add String
+  | Delete String
+  | Reconcile
+  | Err String
+
+parseCommand :: String -> Command
+parseCommand s = case words s of
+  ["new", fname]  -> New fname
+  ["open", fname] -> Open fname
+  ["show"]        -> Show
+  ["total"]       -> Total
+  "+" : str       -> Add $ unwords str
+  ["delete", str] -> Delete str
+  ["reconcile"]   -> Reconcile
+  err             -> Err $ unwords err
+
 emptyModel :: Model
 emptyModel = Model 0 [] ""
 
@@ -54,13 +75,14 @@ repl = do
   case command of
     Nothing     -> outputStrLn "Goodbye."
     Just "quit" -> outputStrLn "Goodbye"
-    Just input  -> process input >> repl
+    Just input  -> process (parseCommand input) >> repl
 
-process :: String -> Repl ()
-process str = case words str of
-  ["new", fname] -> modify (\m -> m {file = fname})
-
-  ["open", fname] -> do
+process :: Command -> Repl ()
+process Show      = get >>= outputStrLn . displaySheet . sheet
+process Total     = get >>= outputStrLn . displayEntry . total . sheet
+process Reconcile = get >>= outputStrLn . concatMap displayPayment . reconcile . total . sheet
+process (New fname) = modify (\m -> m {file = fname})
+process (Open fname) = do
     exists <- liftIO $ doesFileExist fname
     if exists
       then do
@@ -70,22 +92,12 @@ process str = case words str of
           Right events -> put $ setModel events fname
       else
         outputStrLn $ "*** FILE: " ++ fname ++ " DOES NOT EXIST. ***"
-
-  ["show"]  -> get >>= outputStrLn . displaySheet . sheet
-
-  ["total"] -> get >>= outputStrLn . displayEntry . total . sheet
-
-  "+" : eventString ->
-    case readP_to_S parseEvent (concat eventString) of
+process (Add eventString) =
+    case readP_to_S parseEvent eventString of
       (e, _) : _ -> modify (addEvent e) >> save
       []         -> outputStrLn "*** INVALID EVENT ***"
-
-  ["delete", n] ->
+process (Delete n) =
     case readMaybe n of
       Nothing -> outputStrLn $ "*** EVENT " ++ n ++ " DOES NOT EXIST ***"
       Just n' -> modify (\m -> m {sheet = deleteEntry (sheet m) n'}) >> save
-
-  ["reconcile"] -> get >>= outputStrLn . concatMap displayPayment . reconcile . total . sheet
-
-  err -> outputStrLn $ "*** " ++ unwords err ++ " IS NOT A VALID COMMAND ***"
-
+process (Err err) = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"
