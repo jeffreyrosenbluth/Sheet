@@ -163,7 +163,7 @@ parseDate :: ReadP Day
 parseDate = do
   month <- posInt <* slash
   day   <- posInt <* slash
-  year  <- posInteger
+  year  <- parseYear
   return $ fromGregorian year month day
 
 -- | Parse a rational number.
@@ -199,5 +199,10 @@ posInt :: ReadP Int
 posInt = read <$> many1 (satisfy isDigit)
 
 -- | Parse a year to an Integer.
-posInteger :: ReadP Integer
-posInteger = read <$> many1 (satisfy isDigit)
+parseYear :: ReadP Integer
+parseYear = readS_to_P f
+  where
+    f xs
+      | null ns   = []
+      | otherwise = [(2000 + read ns, rest)]
+      where (ns, rest) = span isDigit xs
