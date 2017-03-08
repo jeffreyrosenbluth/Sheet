@@ -16,6 +16,7 @@
 
 module Sheet where
 
+import           Control.Applicative          ((<|>))
 import           Data.Char                    (isDigit)
 import           Data.List                    (sortOn)
 import           Data.Time.Calendar           (Day(..))
@@ -26,8 +27,7 @@ import           Data.List.NonEmpty           (NonEmpty)
 import qualified Data.List.NonEmpty           as N
 import           Data.Serialize               (Serialize)
 import           GHC.Generics
-import           Text.ParserCombinators.ReadP (ReadP, munch1, skipSpaces, char
-                                              ,satisfy, many1, pfail)
+import           Text.ParserCombinators.ReadP -- (ReadP, munch1, skipSpaces, char, pfail)
 import           Text.Printf                  (printf)
 import           Text.Read                    (readMaybe)
 
@@ -58,6 +58,19 @@ data Payment = Payment
   , to   :: Name
   , pmt  :: Rational
   } deriving (Show, Eq)
+
+data Command
+  = New FilePath
+  | Open FilePath
+  | Show
+  | Add Event
+  | Delete Int
+  | Total
+  | Reconcile
+  | Help
+  | Quit
+  deriving Show
+
 
 -- To String -------------------------------------------------------------------
 
@@ -150,10 +163,52 @@ deleteEntry s n = filter ((/= n) . ident) s
 
 -- Parser ----------------------------------------------------------------------
 
+parseCommand :: ReadP Command
+parseCommand
+  =   parseNew
+  <|> parseOpen
+  <|> parseShow
+  <|> parseAdd
+  <|> parseDel
+  <|> parseTot
+  <|> parseRec
+  <|> parseHelp
+  <|> parseQuit
+
+lexeme :: ReadP a -> ReadP a
+lexeme p = p <* skipSpaces
+
+parseNew :: ReadP Command
+parseNew = New <$> lexeme (string "new" *> skipSpaces *> notComma)
+
+parseOpen :: ReadP Command
+parseOpen = Open <$> lexeme (string "open" *> skipSpaces *> notComma)
+
+parseShow :: ReadP Command
+parseShow = Show <$ lexeme (string "show")
+
+parseAdd :: ReadP Command
+parseAdd = Add <$> lexeme (string "+" *> skipSpaces *> parseEvent)
+
+parseDel :: ReadP Command
+parseDel = Delete <$> lexeme (string "delete" *> skipSpaces *> posInt)
+
+parseTot :: ReadP Command
+parseTot = Total <$ lexeme (string "total")
+
+parseRec :: ReadP Command
+parseRec = Reconcile <$ lexeme (string "reconcile")
+
+parseHelp :: ReadP Command
+parseHelp = Help <$ lexeme (string "help")
+
+parseQuit :: ReadP Command
+parseQuit = Quit <$ lexeme (string "quit")
+
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
 parseEvent = do
-  dt   <- parseDay <* sep
+  dt   <- parseDay <* optional comma <* skipSpaces
   desc <- notComma <* sep
   pyr  <- notComma <* sep
   amt  <- parseAmount <* sep
@@ -162,7 +217,8 @@ parseEvent = do
 
 -- | parse a Date.
 parseDay :: ReadP Day
-parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y" =<< notComma
+parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y"
+       =<< munch1 (\c -> c /= ',' && c /= ' ')
 
 -- | Parse a rational number.
 parseAmount :: ReadP Rational
@@ -195,3 +251,7 @@ notComma = munch1 (/= ',')
 -- | Separator parser.
 sep :: ReadP Char
 sep = comma <* skipSpaces
+
+-- | Parse a positive Int.
+posInt :: ReadP Int
+posInt = read <$> many1 (satisfy isDigit)

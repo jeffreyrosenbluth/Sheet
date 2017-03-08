@@ -34,17 +34,6 @@ data Model = Model
   , file   :: String
   }
 
-data Command
-  = New String
-  | Open String
-  | Show
-  | Total
-  | Add String
-  | Delete String
-  | Reconcile
-  | Help
-  | Err String
-
 --------------------------------------------------------------------------------
 
 main :: IO ((), Model)
@@ -53,18 +42,6 @@ main = do
   putStrLn "Copyright 2017, Jeffrey Rosenbluth"
   putStrLn "Version 0.1\n"
   runStateT (runInputT defaultSettings repl) (Model 0 [] "")
-
-parseCommand :: String -> Command
-parseCommand s = case words s of
-  ["new", fname]  -> New fname
-  ["open", fname] -> Open fname
-  ["show"]        -> Show
-  ["total"]       -> Total
-  "+" : str       -> Add $ unwords str
-  ["delete", str] -> Delete str
-  ["reconcile"]   -> Reconcile
-  ["help"]        -> Help
-  err             -> Err $ unwords err
 
 setModel :: [Event] -> String -> Model
 setModel events = Model (maximum $ map ident events) events
@@ -90,17 +67,21 @@ repl :: Repl ()
 repl = do
   command <- getInputLine ">> "
   case command of
-    Nothing     -> outputStrLn "Goodbye."
-    Just "quit" -> outputStrLn "Goodbye"
-    Just input  -> process (parseCommand input) >> repl
+    Nothing   -> outputStrLn "Goodbye"
+    Just cmd  ->
+      case readP_to_S parseCommand cmd of
+        []            -> outputStrLn ("*** UNABLE TO PARSE COMMAND " ++ cmd ++ " ***") >> repl
+        (Quit, _) : _ -> outputStrLn "Goodbye"
+        (c, _)    : _ -> process c
+
 
 process :: Command -> Repl ()
-process Show         = get >>= outputStrLn . displaySheet . sheet
-process Total        = get >>= outputStrLn . displayEntry . total . sheet
-process Reconcile    = get >>= outputStrLn . concatMap displayPayment . reconcile . total . sheet
-process Help         = outputStrLn help
-process (Err err)    = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"
-process (New fname)  = modify (\m -> m {file = fname})
+process Show         = get >>= outputStrLn . displaySheet . sheet >> repl
+process Total        = get >>= outputStrLn . displayEntry . total . sheet >> repl
+process Reconcile    = get >>= outputStrLn . concatMap displayPayment
+                                           . reconcile . total . sheet >> repl
+process Help         = outputStrLn help >> repl
+process (New fname)  = modify (\m -> m {file = fname}) >> repl
 process (Open fname) = do
     exists <- liftIO $ doesFileExist fname
     if exists
@@ -111,12 +92,10 @@ process (Open fname) = do
           Right events -> put $ setModel events fname
       else
         outputStrLn $ "*** FILE: " ++ fname ++ " DOES NOT EXIST. ***"
-process (Add event)  = case readP_to_S parseEvent event of
-      (e, _) : _ -> modify (addEvent e) >> save
-      []         -> outputStrLn "*** INVALID EVENT ***"
-process (Delete n)   = case readMaybe n of
-      Nothing -> outputStrLn $ "*** PARSE ERROR " ++ n ++ " IS NOT AN INTEGER ***"
-      Just n' -> modify (\m -> m {sheet = deleteEntry (sheet m) n'}) >> save
+    repl
+process (Add event)  = modify (addEvent event) >> save >> repl
+process (Delete n)   = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
+process Quit         = outputStrLn "Goodbye"
 
 -- Logo ------------------------------------------------------------------------
 
@@ -134,14 +113,16 @@ help :: String
 help
   =  "\nCommand                       Description\n"
   ++ "---------------               ------------------------------------------\n"
+  ++ "help                          This page\n"
   ++ "new <filename>                Start a new sheet\n"
   ++ "open <filename>               Open an existing sheet\n"
   ++ "show                          Display the sheet on the screen\n"
   ++ "delete <n>                    Delete entry with key n\n"
   ++ "+ <entry>                     Add an entry where <entry> is\n"
-  ++ "                                <dd/mm/yy>, <description>, <payer>,\n"
+  ++ "                                <dd/mm/yy> <description>, <payer>,\n"
   ++ "                                <amount>, <participants>\n"
   ++ "                                example: + 7/04/16, Dinner at McDonalds,\n"
   ++ "                                           JR, 75.62, JR RS JT DM\n"
   ++ "total                         Aggregate all payments\n"
   ++ "reconcile                     Pairoff borrowers and lenders\n"
+  ++ "quit                          \n"
