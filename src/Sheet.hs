@@ -175,35 +175,35 @@ parseCommand
   <|> parseHelp
   <|> parseQuit
 
-lexeme :: ReadP a -> ReadP a
-lexeme p = p <* skipSpaces
+symbol :: String -> ReadP String
+symbol s = string s <* skipSpaces
 
 parseNew :: ReadP Command
-parseNew = New <$> lexeme (string "new" *> skipSpaces *> notComma)
+parseNew = New <$> (symbol "new" *> notComma)
 
 parseOpen :: ReadP Command
-parseOpen = Open <$> lexeme (string "open" *> skipSpaces *> notComma)
+parseOpen = Open <$> (symbol "open" *> notComma)
 
 parseShow :: ReadP Command
-parseShow = Show <$ lexeme (string "show")
+parseShow = Show <$ symbol "show"
 
 parseAdd :: ReadP Command
-parseAdd = Add <$> lexeme (string "+" *> skipSpaces *> parseEvent)
+parseAdd = Add <$> (symbol "+" *> parseEvent)
 
 parseDel :: ReadP Command
-parseDel = Delete <$> lexeme (string "delete" *> skipSpaces *> posInt)
+parseDel = Delete <$> (symbol "delete" *> posInt)
 
 parseTot :: ReadP Command
-parseTot = Total <$ lexeme (string "total")
+parseTot = Total <$ symbol "total"
 
 parseRec :: ReadP Command
-parseRec = Reconcile <$ lexeme (string "reconcile")
+parseRec = Reconcile <$ symbol "reconcile"
 
 parseHelp :: ReadP Command
-parseHelp = Help <$ lexeme (string "help")
+parseHelp = Help <$ symbol "help"
 
 parseQuit :: ReadP Command
-parseQuit = Quit <$ lexeme (string "quit")
+parseQuit = Quit <$ symbol "quit"
 
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
