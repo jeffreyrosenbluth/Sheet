@@ -42,6 +42,7 @@ data Command
   | Add String
   | Delete String
   | Reconcile
+  | Help
   | Err String
 
 --------------------------------------------------------------------------------
@@ -50,7 +51,7 @@ main :: IO ((), Model)
 main = do
   putStrLn logo
   putStrLn "Copyright 2017, Jeffrey Rosenbluth"
-  putStrLn "Version 0.1"
+  putStrLn "Version 0.1\n"
   runStateT (runInputT defaultSettings repl) (Model 0 [] "")
 
 parseCommand :: String -> Command
@@ -62,6 +63,7 @@ parseCommand s = case words s of
   "+" : str       -> Add $ unwords str
   ["delete", str] -> Delete str
   ["reconcile"]   -> Reconcile
+  ["help"]        -> Help
   err             -> Err $ unwords err
 
 setModel :: [Event] -> String -> Model
@@ -93,10 +95,12 @@ repl = do
     Just input  -> process (parseCommand input) >> repl
 
 process :: Command -> Repl ()
-process Show      = get >>= outputStrLn . displaySheet . sheet
-process Total     = get >>= outputStrLn . displayEntry . total . sheet
-process Reconcile = get >>= outputStrLn . concatMap displayPayment . reconcile . total . sheet
-process (New fname) = modify (\m -> m {file = fname})
+process Show         = get >>= outputStrLn . displaySheet . sheet
+process Total        = get >>= outputStrLn . displayEntry . total . sheet
+process Reconcile    = get >>= outputStrLn . concatMap displayPayment . reconcile . total . sheet
+process Help         = outputStrLn help
+process (Err err)    = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"
+process (New fname)  = modify (\m -> m {file = fname})
 process (Open fname) = do
     exists <- liftIO $ doesFileExist fname
     if exists
@@ -107,15 +111,12 @@ process (Open fname) = do
           Right events -> put $ setModel events fname
       else
         outputStrLn $ "*** FILE: " ++ fname ++ " DOES NOT EXIST. ***"
-process (Add eventString) =
-    case readP_to_S parseEvent eventString of
+process (Add event)  = case readP_to_S parseEvent event of
       (e, _) : _ -> modify (addEvent e) >> save
       []         -> outputStrLn "*** INVALID EVENT ***"
-process (Delete n) =
-    case readMaybe n of
+process (Delete n)   = case readMaybe n of
       Nothing -> outputStrLn $ "*** PARSE ERROR " ++ n ++ " IS NOT AN INTEGER ***"
       Just n' -> modify (\m -> m {sheet = deleteEntry (sheet m) n'}) >> save
-process (Err err) = outputStrLn $ "*** " ++ err ++ " IS NOT A VALID COMMAND ***"
 
 -- Logo ------------------------------------------------------------------------
 
@@ -126,3 +127,21 @@ logo =  "  _____ _               _     _ _   \n"
      ++ " \\___ \\| '_ \\ / _ \\/ _ \\ __| | | __|\n"
      ++ " ____) | | | |  __/  __/ |_  | | |_ \n"
      ++ "|_____/|_| |_|\\___|\\___|\\__| |_|\\__|\n"
+
+-- Help ------------------------------------------------------------------------
+
+help :: String
+help
+  =  "\nCommad                        Description\n"
+  ++ "------                        -----------\n"
+  ++ "new <filename>                Start a new sheet\n"
+  ++ "open <filename>               Open an existing sheet\n"
+  ++ "show                          Display the sheet on the screen\n"
+  ++ "delete <n>                    Delete entry with key n\n"
+  ++ "+ <entry>                     Add an entry where <entry> is\n"
+  ++ "                                <dd/mm/yy>, <description>, <payer>,\n"
+  ++ "                                <amount>, <participants>\n"
+  ++ "                                example: + 7/04/16, Dinner at McDonalds,\n"
+  ++ "                                           JR, 75.62, JR RS JT DM\n"
+  ++ "total                         Aggregate all payments\n"
+  ++ "reconcile                     Pairoff borrowers and lenders\n"

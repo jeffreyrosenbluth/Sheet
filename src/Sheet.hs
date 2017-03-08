@@ -69,7 +69,7 @@ displayRational = printf "% 10.2f" . dbl
 -- | 'Payment' to String.
 displayPayment :: Payment -> String
 displayPayment (Payment f t p) =
-  displayRational p ++ ": " ++ f ++ " -> " ++ t ++ "\n"
+  f ++ " -> " ++ t ++ ": " ++ displayRational p ++ "\n"
 
 -- | 'Entry' to String.
 displayEntry :: Entry -> String
