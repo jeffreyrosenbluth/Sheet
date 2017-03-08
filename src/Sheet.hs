@@ -18,9 +18,8 @@ module Sheet where
 
 import           Data.Char                    (isDigit)
 import           Data.List                    (sortOn)
-import           Data.Time.Calendar           (Day(..), fromGregorian)
-import           Data.Time.Format             (defaultTimeLocale, formatTime
-                                              ,parseTimeOrError)
+import           Data.Time.Calendar           (Day(..))
+import           Data.Time.Format             (defaultTimeLocale, formatTime ,parseTimeM)
 import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as M
 import           Data.List.NonEmpty           (NonEmpty)
@@ -28,8 +27,9 @@ import qualified Data.List.NonEmpty           as N
 import           Data.Serialize               (Serialize)
 import           GHC.Generics
 import           Text.ParserCombinators.ReadP (ReadP, munch1, skipSpaces, char
-                                              ,satisfy, many1, readS_to_P)
+                                              ,satisfy, many1, pfail)
 import           Text.Printf                  (printf)
+import           Text.Read                    (readMaybe)
 
 -- Types -----------------------------------------------------------------------
 
@@ -162,13 +162,17 @@ parseEvent = do
 
 -- | parse a Date.
 parseDay :: ReadP Day
-parseDay = parseTimeOrError True defaultTimeLocale "%-m/%-d/%-y" <$> notComma
+parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y" =<< notComma
 
 -- | Parse a rational number.
 parseAmount :: ReadP Rational
 parseAmount = do
   s <- notComma
-  return $ toRational (100 * read s :: Double) / 100
+  let x = readMaybe s :: Maybe Double
+  case x of
+    Nothing -> pfail
+    Just y  -> return $ toRational (100 * y) / 100
+
 
 -- | Parse a non-empty list of 'Name's.
 parseParticipants :: ReadP (NonEmpty Name)
@@ -191,7 +195,3 @@ notComma = munch1 (/= ',')
 -- | Separator parser.
 sep :: ReadP Char
 sep = comma <* skipSpaces
-
--- | Parse a positive Int.
-posInt :: ReadP Int
-posInt = read <$> many1 (satisfy isDigit)
