@@ -18,16 +18,18 @@ module Sheet where
 
 import           Data.Char                    (isDigit)
 import           Data.List                    (sortOn)
-import           Data.Time.Calendar
-import           Data.Time.Format
+import           Data.Time.Calendar           (Day(..), fromGregorian)
+import           Data.Time.Format             (defaultTimeLocale, formatTime
+                                              ,parseTimeOrError)
 import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as M
 import           Data.List.NonEmpty           (NonEmpty)
 import qualified Data.List.NonEmpty           as N
-import           Data.Serialize
+import           Data.Serialize               (Serialize)
 import           GHC.Generics
-import           Text.ParserCombinators.ReadP
-import           Text.Printf
+import           Text.ParserCombinators.ReadP (ReadP, munch1, skipSpaces, char
+                                              ,satisfy, many1, readS_to_P)
+import           Text.Printf                  (printf)
 
 -- Types -----------------------------------------------------------------------
 
@@ -96,16 +98,16 @@ displaySheet = concatMap displayEvent . sortOn date
 mkLineItem :: Event -> Entry
 mkLineItem e = M.unionWith (+) paid (M.fromList owes)
   where
-    paid    = M.singleton (payer e) (amount e)
-    owes    = map (\p -> (p, (-1) * amount e / fromIntegral n))
-                  (N.toList $ participants e)
-    n       = length (participants e)
+    paid = M.singleton (payer e) (amount e)
+    owes = map (\p -> (p, (-1) * amount e / fromIntegral n))
+               (N.toList $ participants e)
+    n    = length (participants e)
 
 -- | Tally up all of the debts in the sheet.
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
 
--- | Find the smallest value in the map if it exists.
+-- | Find the smallest value in a map if it exists.
 minValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
 minValue m
   | null m    = Nothing
@@ -114,7 +116,7 @@ minValue m
     f k v (k0, v0) = if v < v0  then (k, v) else (k0, v0)
     (k1, v1) = M.elemAt 0 m
 
--- | Find the largets value in the map if it exists.
+-- | Find the largets value in a map if it exists.
 maxValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
 maxValue m
   | null m    = Nothing
@@ -130,15 +132,15 @@ pairOff e = do
   (t, b) <- minValue e
   return $
     if a >= abs b
-      then (Payment t f (negate b), M.delete t  . M.adjust (+ b) f $ e)
-      else (Payment t f a, M.adjust (+ a) t . M.delete f $ e)
+      then (Payment t f (negate b), M.delete t . M.adjust (+ b) f $ e)
+      else (Payment t f a         , M.adjust (+ a) t . M.delete f $ e)
 
 -- | Create a list of transfer payments so that there are no debts left in the 'Sheet'.
 reconcile :: Entry -> [Payment]
 reconcile e = if M.size e >= 2
   then
     case pairOff e of
-      Nothing -> error "tHE SKY IS FALLING, TRIED TO PAIR OFF AN EMPTY MAP."
+      Nothing -> error "THE SKY IS FALLING, TRIED TO PAIR OFF AN EMPTY MAP."
       Just (p, e') -> p : reconcile e'
   else []
 
@@ -151,12 +153,15 @@ deleteEntry s n = filter ((/= n) . ident) s
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
 parseEvent = do
-  dt   <- parseDate <* sep
+  dt   <- parseDay <* sep
   desc <- notComma <* sep
   pyr  <- notComma <* sep
   amt  <- parseAmount <* sep
   ps   <- parseParticipants
   return $ Event 0 desc dt pyr ps amt
+
+parseDay :: ReadP Day
+parseDay = parseTimeOrError True defaultTimeLocale "%D" <$> notComma
 
 -- | parse a Date.
 parseDate :: ReadP Day
@@ -170,7 +175,7 @@ parseDate = do
 parseAmount :: ReadP Rational
 parseAmount = do
   s <- notComma
-  return $ (toRational (100 * read s :: Double)) / 100
+  return $ toRational (100 * read s :: Double) / 100
 
 -- | Parse a non-empty list of 'Name's.
 parseParticipants :: ReadP (NonEmpty Name)
@@ -205,4 +210,5 @@ parseYear = readS_to_P f
     f xs
       | null ns   = []
       | otherwise = [(2000 + read ns, rest)]
-      where (ns, rest) = span isDigit xs
+      where
+        (ns, rest) = span isDigit xs

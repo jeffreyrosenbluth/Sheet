@@ -121,7 +121,7 @@ process (Delete n)   = case readMaybe n of
 -- Logo ------------------------------------------------------------------------
 
 logo :: String
-logo =  "  _____ _               _     _ _   \n"
+logo =  "  _____ _               _       _   \n"
      ++ " / ____| |             | |   (_) |  \n"
      ++ "| (___ | |__   ___  ___| |_   _| |_ \n"
      ++ " \\___ \\| '_ \\ / _ \\/ _ \\ __| | | __|\n"
@@ -132,8 +132,8 @@ logo =  "  _____ _               _     _ _   \n"
 
 help :: String
 help
-  =  "\nCommad                        Description\n"
-  ++ "------                        -----------\n"
+  =  "\nCommand                       Description\n"
+  ++ "---------------               ------------------------------------------\n"
   ++ "new <filename>                Start a new sheet\n"
   ++ "open <filename>               Open an existing sheet\n"
   ++ "show                          Display the sheet on the screen\n"
