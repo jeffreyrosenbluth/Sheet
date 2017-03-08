@@ -160,16 +160,9 @@ parseEvent = do
   ps   <- parseParticipants
   return $ Event 0 desc dt pyr ps amt
 
-parseDay :: ReadP Day
-parseDay = parseTimeOrError True defaultTimeLocale "%D" <$> notComma
-
 -- | parse a Date.
-parseDate :: ReadP Day
-parseDate = do
-  month <- posInt <* slash
-  day   <- posInt <* slash
-  year  <- parseYear
-  return $ fromGregorian year month day
+parseDay :: ReadP Day
+parseDay = parseTimeOrError True defaultTimeLocale "%-m/%-d/%-y" <$> notComma
 
 -- | Parse a rational number.
 parseAmount :: ReadP Rational
@@ -202,13 +195,3 @@ sep = comma <* skipSpaces
 -- | Parse a positive Int.
 posInt :: ReadP Int
 posInt = read <$> many1 (satisfy isDigit)
-
--- | Parse a year to an Integer.
-parseYear :: ReadP Integer
-parseYear = readS_to_P f
-  where
-    f xs
-      | null ns   = []
-      | otherwise = [(2000 + read ns, rest)]
-      where
-        (ns, rest) = span isDigit xs

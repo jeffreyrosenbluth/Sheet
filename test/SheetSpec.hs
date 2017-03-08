@@ -9,6 +9,7 @@ import           Data.Ratio ((%))
 import           Data.Serialize
 import           Text.ParserCombinators.ReadP
 
+eventString1 :: String
 eventString1 = "2/27/17, Bowling, JR, 100.10, JR VH AK SZ SO"
  
 event1 :: Event
@@ -102,8 +103,11 @@ spec = do
   describe "serialize" $ 
     it "Checks that (decode . encodei) == id" $
       (decode . encode $ [entry1, entry2]) `shouldBe` Right [entry1, entry2]
-  describe "parseEvent" $ 
-    it "Parsers a string to an event" $
+  describe "Parse" $  do
+    it "Parses a date" $ do
+      readP_to_S parseDay "02/01/17" `shouldBe` [(fromGregorian 2017 2 1, "")]
+      readP_to_S parseDay "2/1/17" `shouldBe` [(fromGregorian 2017 2 1, "")]
+    it "Parses a string to an event" $
       readP_to_S parseEvent eventString1 `shouldBe` [(event1, "")]
   describe "pariOff" $ do
     it "Pairs off the biggest debtor with the biggest lender" $ do
