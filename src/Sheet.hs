@@ -17,7 +17,6 @@
 module Sheet where
 
 import           Control.Applicative          ((<|>))
-import           Data.Char                    (isDigit)
 import           Data.List                    (sortOn)
 import           Data.Time.Calendar           (Day(..))
 import           Data.Time.Format             (defaultTimeLocale, formatTime ,parseTimeM)
@@ -25,6 +24,7 @@ import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as M
 import           Data.List.NonEmpty           (NonEmpty)
 import qualified Data.List.NonEmpty           as N
+import           Data.Monoid                  ((<>))
 import           Data.Serialize               (Serialize)
 import           GHC.Generics
 import           Text.ParserCombinators.ReadP -- (ReadP, munch1, skipSpaces, char, pfail)
@@ -74,7 +74,7 @@ data Command
 
 -- To String -------------------------------------------------------------------
 
--- | Convert a rational nuber to a string with 2 decimal places.
+-- | Convert a rational number to a string with 2 decimal places.
 displayRational :: Rational -> String
 displayRational = printf "% 10.2f" . dbl
   where
@@ -84,22 +84,22 @@ displayRational = printf "% 10.2f" . dbl
 -- | 'Payment' to String.
 displayPayment :: Payment -> String
 displayPayment (Payment f t p) =
-  f ++ " -> " ++ t ++ ": " ++ displayRational p ++ "\n"
+  f <> " -> " <> t <> ": " <> displayRational p <> "\n"
 
 -- | 'Entry' to String.
 displayEntry :: Entry -> String
 displayEntry = M.foldlWithKey'
-  (\b k v -> b ++ k ++ ": " ++ displayRational v ++ "\n") ""
+  (\b k v -> b <> k <> ": " <> displayRational v <> "\n") ""
 
 -- | 'Event' to String
 displayEvent :: Event -> String
 displayEvent e
   =  printf "% 3d " (ident e)
-  ++ formatTime defaultTimeLocale "%D " (date e)
-  ++ printf "%-31.30s" (description e)
-  ++ printf "%-5.4s" (payer e)
-  ++ printf "% 10.2f " (fromRational (amount e) :: Double)
-  ++ unwords (N.toList . N.sort $ participants e) ++ "\n"
+  <> formatTime defaultTimeLocale "%D " (date e)
+  <> printf "%-31.30s" (description e)
+  <> printf "%-5.4s" (payer e)
+  <> printf "% 10.2f " (fromRational (amount e) :: Double)
+  <> unwords (N.toList . N.sort $ participants e) <> "\n"
 
 -- | 'Sheet' to String, sorted by date.
 displaySheet :: Sheet -> String
@@ -163,6 +163,7 @@ deleteEntry s n = filter ((/= n) . ident) s
 
 -- Parser ----------------------------------------------------------------------
 
+-- | parse a command.
 parseCommand :: ReadP Command
 parseCommand
   =   parseNew
@@ -175,6 +176,7 @@ parseCommand
   <|> parseHelp
   <|> parseQuit
 
+-- | Parse a symbol and consume trailing whitespace.
 symbol :: String -> ReadP String
 symbol s = string s <* skipSpaces
 
@@ -191,7 +193,7 @@ parseAdd :: ReadP Command
 parseAdd = Add <$> (symbol "+" *> parseEvent)
 
 parseDel :: ReadP Command
-parseDel = Delete <$> (symbol "delete" *> posInt)
+parseDel = Delete <$> (symbol "delete" *> int)
 
 parseTot :: ReadP Command
 parseTot = Total <$ symbol "total"
@@ -211,7 +213,7 @@ parseEvent = do
   dt   <- parseDay <* optional comma <* skipSpaces
   desc <- notComma <* sep
   pyr  <- notComma <* sep
-  amt  <- parseAmount <* sep
+  amt  <- parseRational <* sep
   ps   <- parseParticipants
   return $ Event 0 desc dt pyr ps amt
 
@@ -221,13 +223,8 @@ parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y"
        =<< munch1 (\c -> c /= ',' && c /= ' ')
 
 -- | Parse a rational number.
-parseAmount :: ReadP Rational
-parseAmount = do
-  s <- notComma
-  let x = readMaybe s :: Maybe Double
-  case x of
-    Nothing -> pfail
-    Just y  -> return $ toRational (100 * y) / 100
+parseRational :: ReadP Rational
+parseRational = (/ 100) .toRational . (* 100) <$> double
 
 -- | Parse a non-empty list of 'Name's.
 parseParticipants :: ReadP (NonEmpty Name)
@@ -251,6 +248,10 @@ notComma = munch1 (/= ',')
 sep :: ReadP Char
 sep = comma <* skipSpaces
 
--- | Parse a positive Int.
-posInt :: ReadP Int
-posInt = read <$> many1 (satisfy isDigit)
+-- | Parse an Int.
+int :: ReadP Int
+int = readS_to_P reads
+
+-- | Parse a Double.
+double :: ReadP Double
+double = readS_to_P reads
