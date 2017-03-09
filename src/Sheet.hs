@@ -29,7 +29,6 @@ import           Data.Serialize               (Serialize)
 import           GHC.Generics
 import           Text.ParserCombinators.ReadP -- (ReadP, munch1, skipSpaces, char, pfail)
 import           Text.Printf                  (printf)
-import           Text.Read                    (readMaybe)
 
 -- Types -----------------------------------------------------------------------
 
@@ -68,6 +67,7 @@ data Command
   | Total
   | Reconcile
   | Help
+  | Print FilePath
   | Quit
   deriving Show
 
@@ -174,6 +174,7 @@ parseCommand
   <|> parseTot
   <|> parseRec
   <|> parseHelp
+  <|> parsePrint
   <|> parseQuit
 
 -- | Parse a symbol and consume trailing whitespace.
@@ -203,6 +204,9 @@ parseRec = Reconcile <$ symbol "reconcile"
 
 parseHelp :: ReadP Command
 parseHelp = Help <$ symbol "help"
+
+parsePrint :: ReadP Command
+parsePrint = Print <$> (symbol "print" *> notComma)
 
 parseQuit :: ReadP Command
 parseQuit = Quit <$ symbol "quit"

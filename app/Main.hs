@@ -17,10 +17,12 @@
 module Main where
 
 import           Sheet
+import           Report
 
 import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import           Data.Serialize (encode, decode)
+import qualified Data.Text.Lazy.IO           as T 
 import           System.Console.Haskeline
 import           System.Directory (doesFileExist)
 import           Text.ParserCombinators.ReadP (readP_to_S)
@@ -76,13 +78,17 @@ repl = do
 
 
 process :: Command -> Repl ()
-process Show         = get >>= outputStrLn . displaySheet . sheet >> repl
-process Total        = get >>= outputStrLn . displayEntry . total . sheet >> repl
-process Reconcile    = get >>= outputStrLn . concatMap displayPayment
+process Show          = get >>= outputStrLn . displaySheet . sheet >> repl
+process Total         = get >>= outputStrLn . displayEntry . total . sheet >> repl
+process Reconcile     = get >>= outputStrLn . concatMap displayPayment
                                            . reconcile . total . sheet >> repl
-process Help         = outputStrLn help >> repl
-process (New fname)  = modify (\m -> m {file = fname}) >> repl
-process (Open fname) = do
+process Help          = outputStrLn help >> repl
+process (Print fname) = get >>= liftIO . T.writeFile fname . renderReport . sheet >> repl
+process (New fname)   = modify (\m -> m {file = fname}) >> repl
+process (Add event )  = modify (addEvent event) >> save >> repl
+process (Delete n)    = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
+process Quit          = outputStrLn "Goodbye"
+process (Open fname)  = do
     exists <- liftIO $ doesFileExist fname
     if exists
       then do
@@ -93,9 +99,6 @@ process (Open fname) = do
       else
         outputStrLn $ "*** FILE: " ++ fname ++ " DOES NOT EXIST. ***"
     repl
-process (Add event)  = modify (addEvent event) >> save >> repl
-process (Delete n)   = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
-process Quit         = outputStrLn "Goodbye"
 
 -- Logo ------------------------------------------------------------------------
 
@@ -117,6 +120,7 @@ help
   ++ "new <filename>                Start a new sheet\n"
   ++ "open <filename>               Open an existing sheet\n"
   ++ "show                          Display the sheet on the screen\n"
+  ++ "print <filename>              Output the results to a file in html\n"
   ++ "delete <n>                    Delete entry with key n\n"
   ++ "+ <entry>                     Add an entry where <entry> is\n"
   ++ "                                <dd/mm/yy> <description>, <payer>,\n"
