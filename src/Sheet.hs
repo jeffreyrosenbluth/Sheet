@@ -229,7 +229,6 @@ parseAmount = do
     Nothing -> pfail
     Just y  -> return $ toRational (100 * y) / 100
 
-
 -- | Parse a non-empty list of 'Name's.
 parseParticipants :: ReadP (NonEmpty Name)
 parseParticipants = do
