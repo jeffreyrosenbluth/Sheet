@@ -19,6 +19,7 @@ module Main where
 import           Sheet
 import           Report
 
+import           Control.Monad                (unless)
 import           Control.Monad.State.Strict
 import qualified Data.ByteString              as BS
 import           Data.Serialize               (encode, decode)
@@ -47,21 +48,11 @@ main = do
   case args of
     [] -> runStateT (runInputT sheetSettings repl) (Model 0 [] "")
     (fname:_) -> do
-      let fn = withExt "sht" fname
-      exists <- doesFileExist fn
-      if exists
-        then do
-          efile <- BS.readFile fn
-          case decode efile of
-            Left err -> do
-              putStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
-              runStateT (runInputT sheetSettings repl) (Model 0 [] "")
-            Right events -> runStateT (runInputT sheetSettings repl) (setModel events fn)
-        else do
-          putStrLn $ "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***"
-          runStateT (runInputT sheetSettings repl) (Model 0 [] "")
-    where
-      sheetSettings = defaultSettings {historyFile = Just "sheetit_history.txt"}
+      (m, err) <- openSheet fname
+      putStrLn err
+      runStateT (runInputT sheetSettings repl) m 
+   where
+     sheetSettings = defaultSettings {historyFile = Just "sheetit_history.txt"}
 
 withExt :: String -> String -> String
 withExt ext base
@@ -70,6 +61,19 @@ withExt ext base
 
 setModel :: [Event] -> String -> Model
 setModel events = Model (maximum $ map ident events) events
+
+openSheet :: FilePath -> IO (Model, String)
+openSheet fname = do
+  let fn = withExt "sht" fname
+  exists <- doesFileExist fn
+  if exists
+    then do
+      efile <- BS.readFile fn
+      return $ case decode efile of
+        Left err     -> (Model 0 [] "", "*** CANNOT DECODE FILE: " ++ err ++ " ***")
+        Right events -> (setModel events fn, "*** " ++ fn ++ " LOADED SUCCESSFULLY ***")
+    else
+      return (Model 0 [] "", "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***")
 
 addEvent :: Event -> Model -> Model
 addEvent e m = m {sheet = (e {ident = n}) : sheet m, nextId = n}
@@ -100,29 +104,22 @@ repl = do
         (c, _)    : _ -> process c
 
 process :: Command -> Repl ()
-process Show          = get >>= outputStrLn . displaySheet . sheet >> repl
-process Total         = get >>= outputStrLn . displayEntry . total . sheet >> repl
-process Reconcile     = get >>= outputStrLn . concatMap displayPayment
-                                           . reconcile . total . sheet >> repl
-process Help          = outputStrLn help >> repl
-process (Print fname) = get >>= liftIO . T.writeFile (withExt "html" fname)
+process Show           = get >>= outputStrLn . displaySheet . sheet >> repl
+process Total          = get >>= outputStrLn . displayEntry . total . sheet >> repl
+process Reconcile      = get >>= outputStrLn . concatMap displayPayment
+                                             . reconcile . total . sheet >> repl
+process Help           = outputStrLn help >> repl
+process (Report fname) = get >>= liftIO . T.writeFile (withExt "html" fname)
                                        . renderReport . sheet >> repl
-process (New fname)   = modify (\m -> m {file = fname}) >> repl
-process (Add event )  = modify (addEvent event) >> save >> repl
-process (Delete n)    = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
-process Quit          = outputStrLn "Goodbye"
-process (Open fname)  = do
-    exists <- liftIO $ doesFileExist fname
-    let fn = withExt "sht" fname
-    if exists
-      then do
-        efile <- liftIO $ BS.readFile fn
-        case decode efile of
-          Left err     -> outputStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
-          Right events -> put $ setModel events fn
-      else
-        outputStrLn $ "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***"
-    repl
+process (New fname)    = modify (\m -> m {file = fname}) >> repl
+process (Add event)    = modify (addEvent event) >> save >> repl
+process (Delete n)     = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
+process Quit           = outputStrLn "Goodbye"
+process (Open fname)   = do
+  (m, err) <- liftIO $ openSheet fname
+  outputStrLn err
+  unless (null . sheet $ m) (put m)
+  repl
 
 -- Logo ------------------------------------------------------------------------
 
@@ -144,7 +141,7 @@ help
   ++ "new <filename>                Start a new sheet\n"
   ++ "open <filename>               Open an existing sheet\n"
   ++ "show                          Display the sheet on the screen\n"
-  ++ "print <filename>              Output the results to a file in html\n"
+  ++ "report <filename>             Output the results to a file in html\n"
   ++ "delete <n>                    Delete entry with key n\n"
   ++ "+ <entry>                     Add an entry where <entry> is\n"
   ++ "                                <dd/mm/yy> <description>, <payer>,\n"

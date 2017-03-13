@@ -67,7 +67,7 @@ data Command
   | Total
   | Reconcile
   | Help
-  | Print FilePath
+  | Report  FilePath
   | Quit
   deriving Show
 
@@ -174,7 +174,7 @@ parseCommand
   <|> parseTot
   <|> parseRec
   <|> parseHelp
-  <|> parsePrint
+  <|> parseReport
   <|> parseQuit
 
 -- | Parse a symbol and consume trailing whitespace.
@@ -205,11 +205,11 @@ parseRec = Reconcile <$ symbol "reconcile"
 parseHelp :: ReadP Command
 parseHelp = Help <$ symbol "help"
 
-parsePrint :: ReadP Command
-parsePrint = Print <$> (symbol "print" *> notComma)
+parseReport :: ReadP Command
+parseReport = Report <$> (symbol "report" *> notComma)
 
 parseQuit :: ReadP Command
-parseQuit = Quit <$ symbol "quit"
+parseQuit = Quit <$ (symbol "quit") 
 
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
