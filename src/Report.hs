@@ -26,34 +26,45 @@ import           Data.Time.Format   (defaultTimeLocale, formatTime)
 
  
 header :: Html ()
-header =  title_ "Sheet it"
+header =  title_ "Sheet-it"
        <> meta_ [charset_ "utf-8"]
+       <> link_ [rel_ "stylesheet"
+                , type_ "text/css"
+                , href_ "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+                ]
 
 bodyHeader :: Html ()
 bodyHeader =
   div_ $
-    h1_ "The Sheet"
+    h1_ "Sheet-it"
 
 report :: Sheet -> Html ()
 report sheet =
   html_ $
        head_ header
     <> body_ (  bodyHeader
-             <> reportEntry entry
-             <> reportSheet sheet
+             <> div_ [class_ "col-xs-4"] (h2_ "Total" <> reportEntry entry)
+             <> div_ [class_ "col-xs-6 col-xs-offset-2"] (h2_ "Payments" <> reportPayments pmts)
+             <> div_ [class_ "col-xs-12"] (h2_ "Sheet" <> reportSheet sheet)
              )
   where
     entry = total sheet
+    pmts  = reconcile entry
 
 reportEntry :: Entry -> Html ()
-reportEntry entry = ul_ $ M.foldMapWithKey item entry
+reportEntry entry =
+  table_ [class_ "table table-striped table-condensed"] $
+         tr_ (th_ "Name" <> th_ [class_ "text-right"] "Amount")
+      <> M.foldMapWithKey item entry
   where
     item :: String -> Rational -> Html ()
-    item s r = li_ $ toHtml (s <> (displayRational r))
+    item s r = tr_ (td_ (toHtml s) <> td_ [class_ "text-right"] (toHtml . displayRational $ r))
 
 reportSheet :: Sheet -> Html ()
 reportSheet s =
-  div_ $ table_ (mconcat $ map reportEvent (sortOn date s))
+  table_ [class_ "table table-striped table-condensed"] $
+         tr_ (th_ "Date" <> th_ "Description" <> th_ "Payer" <> th_ "Amount" <> th_ "Participants")
+      <> (mconcat $ map reportEvent (sortOn date s))
 
 reportEvent :: Event -> Html ()
 reportEvent e =
@@ -67,8 +78,21 @@ reportEvent e =
     dt = toHtml $ formatTime defaultTimeLocale "%D " (date e)
     amt = toHtml $ displayRational (amount e)
     ps  = toHtml $ unwords (N.toList . N.sort $ participants e) 
-   
 
+reportPayment :: Payment -> Html ()
+reportPayment p =
+  tr_ ( td_ (toHtml $ from p)
+     <> td_ (toHtml $ to p)
+     <> td_ [class_ "text-right"] amt
+      )
+  where
+    amt = toHtml $ displayRational (pmt p)
+
+reportPayments :: [Payment] -> Html ()
+reportPayments ps =
+  table_ [class_ "table table-striped table-condensed"] $
+         tr_ (th_ "From" <> th_ "To" <> th_ [class_ "text-right"] "Amount") 
+      <> (mconcat $ map reportPayment ps)
 
 renderReport :: Sheet -> Text
 renderReport = renderText . report
