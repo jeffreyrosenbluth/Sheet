@@ -20,13 +20,13 @@ import           Sheet
 import           Report
 
 import           Control.Monad.State.Strict
-import qualified Data.ByteString as BS
-import           Data.Serialize (encode, decode)
-import qualified Data.Text.Lazy.IO           as T 
+import qualified Data.ByteString              as BS
+import           Data.Serialize               (encode, decode)
+import qualified Data.Text.Lazy.IO            as T 
 import           System.Console.Haskeline
-import           System.Directory (doesFileExist)
+import           System.Directory             (doesFileExist)
+import           System.Environment           (getArgs)
 import           Text.ParserCombinators.ReadP (readP_to_S)
-import           Text.Read (readMaybe)
 
 -- Types -----------------------------------------------------------------------
 
@@ -43,7 +43,30 @@ main = do
   putStrLn logo
   putStrLn "Copyright 2017, Jeffrey Rosenbluth"
   putStrLn "Version 0.1\n"
-  runStateT (runInputT defaultSettings repl) (Model 0 [] "")
+  args <- getArgs
+  case args of
+    [] -> runStateT (runInputT sheetSettings repl) (Model 0 [] "")
+    (fname:_) -> do
+      let fn = withExt "sht" fname
+      exists <- doesFileExist fn
+      if exists
+        then do
+          efile <- BS.readFile fn
+          case decode efile of
+            Left err -> do
+              putStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
+              runStateT (runInputT sheetSettings repl) (Model 0 [] "")
+            Right events -> runStateT (runInputT sheetSettings repl) (setModel events fn)
+        else do
+          putStrLn $ "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***"
+          runStateT (runInputT sheetSettings repl) (Model 0 [] "")
+    where
+      sheetSettings = defaultSettings {historyFile = Just "sheetit_history.txt"}
+
+withExt :: String -> String -> String
+withExt ext base
+  | '.' `elem` base = base
+  | otherwise  = base ++ "." ++ ext
 
 setModel :: [Event] -> String -> Model
 setModel events = Model (maximum $ map ident events) events
@@ -76,28 +99,29 @@ repl = do
         (Quit, _) : _ -> outputStrLn "Goodbye"
         (c, _)    : _ -> process c
 
-
 process :: Command -> Repl ()
 process Show          = get >>= outputStrLn . displaySheet . sheet >> repl
 process Total         = get >>= outputStrLn . displayEntry . total . sheet >> repl
 process Reconcile     = get >>= outputStrLn . concatMap displayPayment
                                            . reconcile . total . sheet >> repl
 process Help          = outputStrLn help >> repl
-process (Print fname) = get >>= liftIO . T.writeFile fname . renderReport . sheet >> repl
+process (Print fname) = get >>= liftIO . T.writeFile (withExt "html" fname)
+                                       . renderReport . sheet >> repl
 process (New fname)   = modify (\m -> m {file = fname}) >> repl
 process (Add event )  = modify (addEvent event) >> save >> repl
 process (Delete n)    = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
 process Quit          = outputStrLn "Goodbye"
 process (Open fname)  = do
     exists <- liftIO $ doesFileExist fname
+    let fn = withExt "sht" fname
     if exists
       then do
-        efile <- liftIO $ BS.readFile fname
+        efile <- liftIO $ BS.readFile fn
         case decode efile of
           Left err     -> outputStrLn $ "*** CANNOT DECODE FILE: " ++ err ++ " ***"
-          Right events -> put $ setModel events fname
+          Right events -> put $ setModel events fn
       else
-        outputStrLn $ "*** FILE: " ++ fname ++ " DOES NOT EXIST. ***"
+        outputStrLn $ "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***"
     repl
 
 -- Logo ------------------------------------------------------------------------
