@@ -27,7 +27,7 @@ import qualified Data.List.NonEmpty           as N
 import           Data.Monoid                  ((<>))
 import           Data.Serialize               (Serialize)
 import           GHC.Generics
-import           Text.ParserCombinators.ReadP 
+import           Text.ParserCombinators.ReadP
 import           Text.Printf                  (printf)
 
 -- Types -----------------------------------------------------------------------
@@ -124,23 +124,21 @@ mkLineItem e = M.unionWith (+) paid (M.fromList owes)
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
 
--- | Find the smallest value in a map if it exists.
-minValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
-minValue m
+extremum :: Ord k => (v -> v -> Bool) -> Map k v -> Maybe (k, v)
+extremum p m
   | null m    = Nothing
   | otherwise = Just $ M.foldrWithKey' f (k1, v1) m
   where
-    f k v (k0, v0) = if v < v0  then (k, v) else (k0, v0)
+    f k v (k0, v0) = if p v v0  then (k, v) else (k0, v0)
     (k1, v1) = M.elemAt 0 m
+
+-- | Find the smallest value in a map if it exists.
+minValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
+minValue = extremum (<)
 
 -- | Find the largets value in a map if it exists.
 maxValue :: (Ord v, Ord k) => Map k v -> Maybe (k, v)
-maxValue m
-  | null m    = Nothing
-  | otherwise = Just $ M.foldrWithKey' f (k1, v1) m
-  where
-    f k v (k0, v0) = if v > v0  then (k, v) else (k0, v0)
-    (k1, v1) = M.elemAt 0 m
+maxValue = extremum (>)
 
 -- | Pair the largest debtor with the largest lender and ajust the 'Sheet' (ledger).
 pairOff :: Entry -> Maybe (Payment, Entry)
