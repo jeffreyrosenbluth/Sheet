@@ -239,14 +239,7 @@ parseRational = (/ 100) . toRational . (* 100) <$> double
 
 -- | Parse a non-empty list of 'Initials'.
 parseParticipants :: ReadP (NonEmpty Initials)
-parseParticipants = readS_to_P f
-  where
-    f s = case ps s of
-      Nothing -> []
-      Just a -> [(N.fromList a, "")] 
-    ps str = sequenceA (pair <$> words str)
-    pair (a:b:[]) = Just (a, b)
-    pair _ = Nothing
+parseParticipants = N.fromList <$> sepBy1 parseInitials (char ' ') <* eof
 
 -- | Parse a comma.
 comma :: ReadP Char

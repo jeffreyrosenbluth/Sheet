@@ -9,6 +9,10 @@ import           Data.Ratio ((%))
 import           Data.Serialize
 import           Text.ParserCombinators.ReadP
 
+toInitials :: String -> Initials
+toInitials (a:b:[]) = (a, b)
+toInitials _ = error "Must be a two character list"
+ 
 eventString1 :: String
 eventString1 = "2/27/17, Bowling, JR, 100.10, JR VH AK SZ SO"
  
@@ -16,78 +20,78 @@ event1 :: Event
 event1 = Event 0
                "Bowling"
                (fromGregorian 2017 2 27)
-               "JR"
-               (N.fromList ["JR", "VH", "AK", "SZ", "SO"])
+               (toInitials "JR")
+               (N.fromList $ map toInitials ["JR", "VH", "AK", "SZ", "SO"])
                100.10
 
 event2 :: Event
 event2 = Event 1
                "Bowling"
                (fromGregorian 2017 2 27)
-               "JR"
-               (N.fromList ["VH", "AK", "SZ", "SO"])
+               (toInitials "JR")
+               (N.fromList $ map toInitials ["VH", "AK", "SZ", "SO"])
                100.10
 
 entry1 :: Entry
 entry1 =
-  M.fromList [ ("JR", 80.08)
-             , ("VH", -20.02)
-             , ("AK", -20.02)
-             , ("SZ", -20.02)
-             , ("SO", -20.02)
+  M.fromList [ (toInitials "JR", 80.08)
+             , (toInitials "VH", -20.02)
+             , (toInitials "AK", -20.02)
+             , (toInitials "SZ", -20.02)
+             , (toInitials "SO", -20.02)
              ]
 
 entry1' :: Entry
 entry1' =
-  M.fromList [ ("JR", -80.08)
-             , ("VH", 20.02)
-             , ("AK", 20.02)
-             , ("SZ", 20.02)
-             , ("SO", 20.02)
+  M.fromList [ (toInitials "JR", -80.08)
+             , (toInitials "VH", 20.02)
+             , (toInitials "AK", 20.02)
+             , (toInitials "SZ", 20.02)
+             , (toInitials "SO", 20.02)
              ]
 
 entry2 :: Entry
 entry2 =
-  M.fromList [ ("JR", 100.10)
-             , ("VH", -25.025)
-             , ("AK", -25.025)
-             , ("SZ", -25.025)
-             , ("SO", -25.025)
+  M.fromList [ (toInitials "JR", 100.10)
+             , (toInitials "VH", -25.025)
+             , (toInitials "AK", -25.025)
+             , (toInitials "SZ", -25.025)
+             , (toInitials "SO", -25.025)
              ]
 
 entry12 :: Entry
 entry12 =
-  M.fromList [ ("JR", 180.18)
-             , ("VH", -45.045)
-             , ("AK", -45.045)
-             , ("SZ", -45.045)
-             , ("SO", -45.045)
+  M.fromList [ (toInitials "JR", 180.18)
+             , (toInitials "VH", -45.045)
+             , (toInitials "AK", -45.045)
+             , (toInitials "SZ", -45.045)
+             , (toInitials "SO", -45.045)
              ]
 
 entry3a :: Entry
-entry3a = M.fromList [("AX", -17), ("BY", 34), ("CZ", -17)]
+entry3a = M.fromList [(toInitials "AX", -17), (toInitials "BY", 34), (toInitials "CZ", -17)]
 
 entry3b :: Entry
-entry3b = M.fromList [("AX", 10), ("BY", -5), ("DU", -5)]
+entry3b = M.fromList [(toInitials "AX", 10), (toInitials "BY", -5), (toInitials "DU", -5)]
 
 entry3ab :: Entry
-entry3ab = M.fromList [("AX", -7), ("BY", 29), ("CZ", -17), ("DU", -5)]
+entry3ab = M.fromList [(toInitials "AX", -7), (toInitials "BY", 29), (toInitials "CZ", -17), (toInitials "DU", -5)]
 
 pairOff1 :: (Payment, Entry)
-pairOff1 = ( Payment {from = "AK", to = "JR", pmt = 1001 % 50}
-           , M.fromList [ ("JR",3003 % 50)
-                        , ("SO",(-1001) % 50)
-                        , ("SZ",(-1001) % 50)
-                        , ("VH",(-1001) % 50)
+pairOff1 = ( Payment {from = toInitials "AK", to = toInitials "JR", pmt = 1001 % 50}
+           , M.fromList [ (toInitials "JR",3003 % 50)
+                        , (toInitials "SO",(-1001) % 50)
+                        , (toInitials "SZ",(-1001) % 50)
+                        , (toInitials "VH",(-1001) % 50)
                         ]
            )
 
 pairOff1' :: (Payment, Entry)
-pairOff1' = ( Payment {from = "JR", to = "AK", pmt = 1001 % 50}
-           , M.fromList [ ("JR",(-3003) % 50)
-                        , ("SO",1001 % 50)
-                        , ("SZ",1001 % 50)
-                        , ("VH",1001 % 50)
+pairOff1' = ( Payment {from = toInitials "JR", to = toInitials "AK", pmt = 1001 % 50}
+           , M.fromList [ (toInitials "JR",(-3003) % 50)
+                        , (toInitials "SO",1001 % 50)
+                        , (toInitials "SZ",1001 % 50)
+                        , (toInitials "VH",1001 % 50)
                         ]
            )
 
@@ -121,5 +125,5 @@ spec = do
       (pmt . head $ reconcile entry1) `shouldBe` 20.02
       (pmt . head $ reconcile entry1') `shouldBe` 20.02
     it "Debtor and lender are correct" $ do
-      (to . head $ reconcile entry1) `shouldBe` "JR"
-      (from . head $ reconcile entry1') `shouldBe` "JR"
+      (to . head $ reconcile entry1) `shouldBe` toInitials "JR"
+      (from . head $ reconcile entry1') `shouldBe` toInitials "JR"
