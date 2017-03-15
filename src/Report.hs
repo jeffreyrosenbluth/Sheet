@@ -57,8 +57,8 @@ reportEntry entry =
          tr_ (th_ "Name" <> th_ [class_ "text-right"] "Amount")
       <> M.foldMapWithKey item entry
   where
-    item :: String -> Rational -> Html ()
-    item s r = tr_ (td_ (toHtml s) <> td_ [class_ "text-right"] (toHtml . displayRational $ r))
+    item :: Initials -> Rational -> Html ()
+    item s r = tr_ (td_ (toHtml (displayInitials s)) <> td_ [class_ "text-right"] (toHtml . displayRational $ r))
 
 reportSheet :: Sheet -> Html ()
 reportSheet s =
@@ -70,19 +70,19 @@ reportEvent :: Event -> Html ()
 reportEvent e =
   tr_ (  td_ dt
       <> td_ (toHtml $ description e)
-      <> td_ (toHtml $ payer e)
+      <> td_ (toHtml $ displayInitials (payer e))
       <> td_ amt
       <> td_ ps
       )
   where
     dt = toHtml $ formatTime defaultTimeLocale "%D " (date e)
     amt = toHtml $ displayRational (amount e)
-    ps  = toHtml $ unwords (N.toList . N.sort $ participants e) 
+    ps  = toHtml $ unwords (N.toList . N.sort $ (displayInitials <$> participants e))
 
 reportPayment :: Payment -> Html ()
 reportPayment p =
-  tr_ ( td_ (toHtml $ from p)
-     <> td_ (toHtml $ to p)
+  tr_ ( td_ (toHtml $ displayInitials (from p))
+     <> td_ (toHtml $ displayInitials (to p))
      <> td_ [class_ "text-right"] amt
       )
   where

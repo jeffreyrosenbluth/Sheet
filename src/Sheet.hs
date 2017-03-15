@@ -27,34 +27,34 @@ import qualified Data.List.NonEmpty           as N
 import           Data.Monoid                  ((<>))
 import           Data.Serialize               (Serialize)
 import           GHC.Generics
-import           Text.ParserCombinators.ReadP -- (ReadP, munch1, skipSpaces, char, pfail)
+import           Text.ParserCombinators.ReadP 
 import           Text.Printf                  (printf)
 
 -- Types -----------------------------------------------------------------------
 
-type Name = String
+type Initials = (Char, Char)
 
 data Event = Event
   { ident        :: Int
   , description  :: String
   , date         :: Day
-  , payer        :: Name
-  , participants :: NonEmpty Name
+  , payer        :: Initials
+  , participants :: NonEmpty Initials
   , amount       :: Rational
   } deriving (Show, Eq, Generic)
 
 deriving instance Generic Day
 instance Serialize Day
-instance Serialize (NonEmpty Name)
+instance Serialize (NonEmpty Initials)
 instance Serialize Event
 
 type Sheet = [Event]
 
-type Entry = Map String Rational
+type Entry = Map Initials Rational
 
 data Payment = Payment
-  { from :: Name
-  , to   :: Name
+  { from :: Initials
+  , to   :: Initials
   , pmt  :: Rational
   } deriving (Show, Eq)
 
@@ -74,6 +74,10 @@ data Command
 
 -- To String -------------------------------------------------------------------
 
+-- | Convert 'Initials' to a string.
+displayInitials :: Initials -> String
+displayInitials (f, l) = [f, l]
+
 -- | Convert a rational number to a string with 2 decimal places.
 displayRational :: Rational -> String
 displayRational = printf "% 10.2f" . dbl
@@ -84,12 +88,12 @@ displayRational = printf "% 10.2f" . dbl
 -- | 'Payment' to String.
 displayPayment :: Payment -> String
 displayPayment (Payment f t p) =
-  f <> " -> " <> t <> ": " <> displayRational p <> "\n"
+  displayInitials f <> " -> " <> displayInitials t <> ": " <> displayRational p <> "\n"
 
 -- | 'Entry' to String.
 displayEntry :: Entry -> String
 displayEntry = M.foldlWithKey'
-  (\b k v -> b <> k <> ": " <> displayRational v <> "\n") ""
+  (\b k v -> b <> displayInitials k <> ": " <> displayRational v <> "\n") ""
 
 -- | 'Event' to String
 displayEvent :: Event -> String
@@ -97,9 +101,9 @@ displayEvent e
   =  printf "% 3d " (ident e)
   <> formatTime defaultTimeLocale "%D " (date e)
   <> printf "%-31.30s" (description e)
-  <> printf "%-5.4s" (payer e)
+  <> printf "%-5.4s" (displayInitials $ payer e)
   <> printf "% 10.2f " (fromRational (amount e) :: Double)
-  <> unwords (N.toList . N.sort $ participants e) <> "\n"
+  <> unwords (N.toList . N.sort $ (displayInitials <$> participants e)) <> "\n"
 
 -- | 'Sheet' to String, sorted by date.
 displaySheet :: Sheet -> String
@@ -181,6 +185,9 @@ parseCommand
 symbol :: String -> ReadP String
 symbol s = string s <* skipSpaces
 
+parseInitials :: ReadP Initials
+parseInitials = (,) <$> get <*> get
+
 parseNew :: ReadP Command
 parseNew = New <$> (symbol "new" *> notComma)
 
@@ -209,14 +216,14 @@ parseReport :: ReadP Command
 parseReport = Report <$> (symbol "report" *> notComma)
 
 parseQuit :: ReadP Command
-parseQuit = Quit <$ (symbol "quit") 
+parseQuit = Quit <$ symbol "quit"
 
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
 parseEvent = do
   dt   <- parseDay <* optional comma <* skipSpaces
   desc <- notComma <* sep
-  pyr  <- notComma <* sep
+  pyr  <- parseInitials <* sep
   amt  <- parseRational <* sep
   ps   <- parseParticipants
   return $ Event 0 desc dt pyr ps amt
@@ -228,13 +235,18 @@ parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y"
 
 -- | Parse a rational number.
 parseRational :: ReadP Rational
-parseRational = (/ 100) .toRational . (* 100) <$> double
+parseRational = (/ 100) . toRational . (* 100) <$> double
 
--- | Parse a non-empty list of 'Name's.
-parseParticipants :: ReadP (NonEmpty Name)
-parseParticipants = do
-  ns <- notComma
-  return $ N.fromList (words ns)
+-- | Parse a non-empty list of 'Initials'.
+parseParticipants :: ReadP (NonEmpty Initials)
+parseParticipants = readS_to_P f
+  where
+    f s = case ps s of
+      Nothing -> []
+      Just a -> [(N.fromList a, "")] 
+    ps str = sequenceA (pair <$> words str)
+    pair (a:b:[]) = Just (a, b)
+    pair _ = Nothing
 
 -- | Parse a comma.
 comma :: ReadP Char

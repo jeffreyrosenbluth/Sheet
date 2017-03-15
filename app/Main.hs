@@ -111,7 +111,7 @@ process Reconcile      = get >>= outputStrLn . concatMap displayPayment
 process Help           = outputStrLn help >> repl
 process (Report fname) = get >>= liftIO . T.writeFile (withExt "html" fname)
                                        . renderReport . sheet >> repl
-process (New fname)    = modify (\m -> m {file = fname}) >> repl
+process (New fname)    = modify (\m -> m {file = (withExt "sht" fname)}) >> repl
 process (Add event)    = modify (addEvent event) >> save >> repl
 process (Delete n)     = modify (\m -> m {sheet = deleteEntry (sheet m) n}) >> save >> repl
 process Quit           = outputStrLn "Goodbye"
