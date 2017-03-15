@@ -124,12 +124,13 @@ mkLineItem e = M.unionWith (+) paid (M.fromList owes)
 total :: Sheet -> Entry
 total sheet = foldr (M.unionWith (+)) M.empty (mkLineItem <$> sheet)
 
+-- | Choose an extreme value from a map.
 extremum :: Ord k => (v -> v -> Bool) -> Map k v -> Maybe (k, v)
-extremum p m
+extremum comp m
   | null m    = Nothing
   | otherwise = Just $ M.foldrWithKey' f (k1, v1) m
   where
-    f k v (k0, v0) = if p v v0  then (k, v) else (k0, v0)
+    f k v (k0, v0) = if comp v v0  then (k, v) else (k0, v0)
     (k1, v1) = M.elemAt 0 m
 
 -- | Find the smallest value in a map if it exists.
