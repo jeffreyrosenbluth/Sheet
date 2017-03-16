@@ -162,3 +162,7 @@ reconcile e = if M.size e >= 2
 deleteEntry :: Sheet -> Int -> Sheet
 deleteEntry s n = filter ((/= n) . ident) s
 
+validateEvent :: Event -> Either String Event
+validateEvent e@(Event _ _ _ _ ps _)
+  | N.length ps /= (N.length . N.nub) ps = Left "dUPLICATE IN PARTICIPANT LIST"
+  | otherwise = Right e

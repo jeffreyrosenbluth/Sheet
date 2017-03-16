@@ -40,10 +40,10 @@ parseInitials :: ReadP Initials
 parseInitials = (,) <$> get <*> get
 
 parseNew :: ReadP Command
-parseNew = New <$> (symbol "new" *> notComma)
+parseNew = New <$> (symbol "new" *> notPunc)
 
 parseOpen :: ReadP Command
-parseOpen = Open <$> (symbol "open" *> notComma)
+parseOpen = Open <$> (symbol "open" *> notPunc)
 
 parseShow :: ReadP Command
 parseShow = Show <$ symbol "show"
@@ -64,7 +64,7 @@ parseHelp :: ReadP Command
 parseHelp = Help <$ symbol "help"
 
 parseReport :: ReadP Command
-parseReport = Report <$> (symbol "report" *> notComma)
+parseReport = Report <$> (symbol "report" *> notPunc)
 
 parseQuit :: ReadP Command
 parseQuit = Quit <$ symbol "quit"
@@ -72,14 +72,14 @@ parseQuit = Quit <$ symbol "quit"
 -- | Convert an event string to an 'Event'.
 parseEvent :: ReadP Event
 parseEvent = do
-  dt   <- parseDay <* optional comma <* skipSpaces
-  desc <- notComma <* sep
-  pyr  <- parseInitials <* sep
-  amt  <- parseRational <* sep
+  dt   <- parseDay <* optional punc <* skipSpaces
+  desc <- (quote <* skipSpaces <|> notPunc <* sep)
+  pyr  <- parseInitials <* optional punc <* skipSomeSpace
+  amt  <- parseRational <* optional punc <* skipSomeSpace
   ps   <- parseParticipants
   return $ Event 0 desc dt pyr ps amt
 
--- | parse a Date.
+-- | Parse a Date.
 parseDay :: ReadP Day
 parseDay = parseTimeM True defaultTimeLocale "%-m/%-d/%-y"
        =<< munch1 (\c -> c /= ',' && c /= ' ')
@@ -92,21 +92,30 @@ parseRational = (/ 100) . toRational . (* 100) <$> double
 parseParticipants :: ReadP (NonEmpty Initials)
 parseParticipants = N.fromList <$> sepBy1 parseInitials (char ' ') <* eof
 
--- | Parse a comma.
-comma :: ReadP Char
-comma = char ','
+isPunc :: Char -> Bool
+isPunc = (`elem` ",.;:")
+
+-- | Parse  punctuation.
+punc :: ReadP Char
+punc =  satisfy isPunc
+
+quote :: ReadP String
+quote = between (char '"') (char '"') (many1 get)
 
 -- | Parse a forward slash.
 slash :: ReadP Char
 slash = char '/'
 
--- | Parse until reaching a comma.
-notComma :: ReadP String
-notComma = munch1 (/= ',')
+-- | Parse until reaching a punctuation mark.
+notPunc :: ReadP String
+notPunc = munch1 (not . isPunc)
 
 -- | Separator parser.
 sep :: ReadP Char
-sep = comma <* skipSpaces
+sep = punc <* skipSpaces
+
+skipSomeSpace ::ReadP String
+skipSomeSpace = munch1 (== ' ')
 
 -- | Parse an Int.
 int :: ReadP Int
