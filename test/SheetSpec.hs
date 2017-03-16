@@ -1,6 +1,8 @@
 module SheetSpec (spec) where
 
 import           Sheet
+import           Parser
+
 import           Test.Hspec
 import           Data.Time.Calendar
 import qualified Data.Map.Strict as M

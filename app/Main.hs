@@ -17,6 +17,7 @@
 module Main where
 
 import           Sheet
+import           Parser
 import           Report
 
 import           Control.Monad                (unless)
