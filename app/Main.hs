@@ -38,6 +38,9 @@ data Model = Model
   , file   :: FilePath
   }
 
+emptyModel :: Model
+emptyModel = Model 0 [] ""
+  
 --------------------------------------------------------------------------------
 
 main :: IO ((), Model)
@@ -47,10 +50,10 @@ main = do
   putStrLn "Version 0.1\n"
   args <- getArgs
   case args of
-    [] -> runStateT (runInputT sheetSettings repl) (Model 0 [] "")
+    [] -> runStateT (runInputT sheetSettings repl) emptyModel
     (fname:_) -> do
-      (m, err) <- openSheet fname
-      putStrLn err
+      (m, msg) <- openSheet fname
+      putStrLn msg
       runStateT (runInputT sheetSettings repl) m
    where
      sheetSettings = defaultSettings {historyFile = Just "sheetit_history.txt"}
@@ -62,7 +65,7 @@ withExt ext base
   | otherwise       = base ++ "." ++ ext
 
 -- | Given a sheet, return a function which takes a 'FilePath' and returns a Model.
---   The 'prevId' field is set to the maximum of the ones already in the map.
+--   The 'prevId' field is set to the maximum of the ids already in the map.
 setModel :: Sheet -> String -> Model
 setModel events = Model (maximum $ map ident events) events
 
@@ -76,17 +79,18 @@ openSheet fname = do
     then do
       efile <- BS.readFile fn
       return $ case decode efile of
-        Left msg     -> (Model 0 [] "", "*** CANNOT DECODE FILE: " ++ msg ++ " ***")
+        Left msg     -> (emptyModel, "*** CANNOT DECODE FILE: " ++ msg ++ " ***")
         Right events -> (setModel events fn, "*** " ++ fn ++ " LOADED SUCCESSFULLY ***")
     else
-      return (Model 0 [] "", "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***")
+      return (emptyModel, "*** FILE: " ++ fn ++ " DOES NOT EXIST. ***")
 
 addEvent :: Event -> Model -> Model
 addEvent e m = m {sheet = (e {ident = n}) : sheet m, prevId = n}
   where
     n = prevId m + 1
 
--- | We make InputT m an instance of 'MonadState' so we don't have to constantly lift get, put etc.
+-- | We make InputT m an instance of 'MonadState' so we don't have to constantly
+--   lift get, put etc.
 instance MonadState s m => MonadState s (InputT m) where
   get   = lift get
   put   = lift . put

@@ -69,7 +69,6 @@ data Command
   | Quit
   deriving Show
 
-
 -- To String -------------------------------------------------------------------
 
 -- | Convert 'Initials' to a string.
@@ -96,7 +95,7 @@ displayEntry = M.foldlWithKey'
 -- | 'Event' to String
 displayEvent :: Event -> String
 displayEvent e
-  =  printf "% 3d " (ident e)
+  =  printf "% 3d. " (ident e)
   <> formatTime defaultTimeLocale "%D " (date e)
   <> printf "%-31.30s" (description e)
   <> printf "%-5.4s" (displayInitials $ payer e)
